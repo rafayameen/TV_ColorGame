@@ -232,12 +232,14 @@ public class GameManager : MonoBehaviour
         // <<< ADDED → after answering, return to Round Screen for next round
         StartCoroutine(GoToNextRoundFlow());
 
-        StartCoroutine(ProceedToNextRoundAfterDelay(1f));
+        StartCoroutine(ProceedToNextRoundAfterDelay(nextRoundDelay));
     }
+
+    public float nextRoundDelay = 1.5f;
 
     private IEnumerator GoToNextRoundFlow()   // <<< ADDED
     {
-        yield return new WaitForSeconds(0.2f);
+        yield return new WaitForSeconds(nextRoundDelay);
         ShowRoundScreen();
     }
 

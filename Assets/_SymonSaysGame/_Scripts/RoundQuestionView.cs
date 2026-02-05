@@ -86,9 +86,12 @@ private Question currentQuestion;
 
         foreach (var item in answerButtons)
         {
-            if (item) item.gameObject.SetActive(false);
+            if (item)
+            {
+                item.gameObject.SetActive(false);
+                item.GetComponent<Outline>().enabled = false;
+            }
         }
-
         // Show prompt
         if (questionText != null) questionText.text = q.prompt;
 
@@ -143,11 +146,16 @@ private Question currentQuestion;
         if (currentQuestion == null) return;
         ColorId clicked = (ColorId)buttonIndex;
 
+
+        answerButtons[buttonIndex].GetComponent<Outline>().enabled = true;
+
         // Toggle selection for combined index question; for single-answer types submit immediately
         if (currentQuestion.type == QuestionType.CombinedIndexQuestion)
         {
             if (currentSelections.Contains(clicked)) currentSelections.Remove(clicked);
             else currentSelections.Add(clicked);
+
+            
 
             // Visual toggle (you can add better visuals)
             // If two selected, auto-submit
