@@ -1,4 +1,6 @@
 using LiquidVolumeFX;
+using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,7 +13,7 @@ public class FlaskScript : MonoBehaviour
     public TMP_Text colorText;
 
     [Header("Particles")]
-    public ParticleSystem bubbleParticles;
+    public List<ParticleSystem> bubbleParticles;
 
     [Header("Color Data")]
     public ColorId colorId;
@@ -40,12 +42,17 @@ public class FlaskScript : MonoBehaviour
         if (outlineImage)
             outlineImage.color = color;
 
-        // Particle color
-        if (bubbleParticles != null)
+        foreach (ParticleSystem particle in bubbleParticles)
         {
-            var main = bubbleParticles.main;
-            main.startColor = color;
+            // Particle color
+            if (particle != null)
+            {
+                var main = particle.main;
+                main.startColor = color;
+            }
+
         }
+
 
         // Text
         if (colorText != null)
@@ -88,8 +95,7 @@ public class FlaskScript : MonoBehaviour
     {
         interactable = value;
 
-        if (!value)
-            EnableOutline(false);
+
     }
 
     public void Highlight(bool on)

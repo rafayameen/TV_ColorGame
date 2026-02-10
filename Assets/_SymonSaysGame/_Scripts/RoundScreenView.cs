@@ -47,7 +47,7 @@ private void OnEnable()
 
     private void HandleRoundChanged(int roundNumber)
     {
-        if (roundText != null) roundText.text = $"Round {roundNumber}";
+        if (roundText != null) roundText.text = $"{roundNumber}";
         if (bigColorImage != null) bigColorImage.enabled = false;
         if (sequenceText != null) sequenceText.text = "";
         ClearDebug();

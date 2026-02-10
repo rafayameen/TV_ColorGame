@@ -80,6 +80,7 @@ public class RoundQuestionView : MonoBehaviour
             flask.gameObject.SetActive(false);
             flask.SetInteractable(false);
             flask.Highlight(false);
+            flask.EnableOutline(false);
         }
 
         // Initialize active flasks
@@ -97,6 +98,8 @@ public class RoundQuestionView : MonoBehaviour
             flask.SetColor(id, color, name);
             flask.Highlight(false);
         }
+
+
     }
 
     #endregion
@@ -145,6 +148,14 @@ public class RoundQuestionView : MonoBehaviour
             // Single-select question
             flask.Highlight(true);
             SubmitAnswers(new List<ColorId> { clicked });
+        }
+    }
+
+    public void OutlineAllFlasks(bool highlight)
+    {
+        foreach (var flask in flasks)
+        {
+            flask.EnableOutline(highlight);
         }
     }
 

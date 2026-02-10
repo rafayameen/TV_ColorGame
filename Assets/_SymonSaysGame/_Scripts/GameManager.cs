@@ -90,6 +90,8 @@ public class GameManager : MonoBehaviour
     private Coroutine runningSequenceCoroutine;
     private Coroutine runningTimerCoroutine;
 
+    public Text scoreText;
+
     private void Awake()
     {
         if (Instance != null && Instance != this) Destroy(this.gameObject);
@@ -186,11 +188,13 @@ public class GameManager : MonoBehaviour
     public GameObject feedbackObj;
     public Text answerCorrectWrongText;
 
+    public GameObject correct, wrong;
+
     public void ShowFeedback()
     {
         feedbackObj.SetActive(true);
 
-        DOVirtual.DelayedCall(1.5f, ()=>feedbackObj.SetActive(false));
+        DOVirtual.DelayedCall(1.5f, () => feedbackObj.SetActive(false));
     }
 
 
@@ -208,31 +212,48 @@ public class GameManager : MonoBehaviour
         var submittedSet = new HashSet<ColorId>(submittedAnswers);
         allCorrect = correctSet.SetEquals(submittedSet);
 
-        if (allCorrect)
+        correct.SetActive(false);
+        wrong.SetActive(false);
+
+        DOVirtual.DelayedCall(1, () =>
         {
-            score += pointsPerRound;
-            OnScoreUpdated?.Invoke(score);
+            if (allCorrect)
+            {
+                correct.SetActive(true);
 
-            answerCorrectWrongText.color = Color.green;
-            answerCorrectWrongText.text = "Correct!";
+                score += pointsPerRound;
+                OnScoreUpdated?.Invoke(score);
 
-        }
-        else
-        {
-            answerCorrectWrongText.color = Color.red;
-            answerCorrectWrongText.text = "Wrong!";
-        }
+                answerCorrectWrongText.color = Color.green;
+                answerCorrectWrongText.text = "Correct!";
 
-        ShowFeedback();
+            }
+            else
+            {
+                wrong.SetActive(true);
 
-        OnRoundComplete?.Invoke(allCorrect);
+                answerCorrectWrongText.color = Color.red;
+                answerCorrectWrongText.text = "Wrong!";
+            }
+            if (scoreText)
+                scoreText.text = score + "/100";
 
-        if (runningTimerCoroutine != null) StopCoroutine(runningTimerCoroutine);
+            ShowFeedback();
 
-        // <<< ADDED → after answering, return to Round Screen for next round
-        StartCoroutine(GoToNextRoundFlow());
+            questionScreen.SetActive(false);
 
-        StartCoroutine(ProceedToNextRoundAfterDelay(nextRoundDelay));
+            OnRoundComplete?.Invoke(allCorrect);
+
+            if (runningTimerCoroutine != null) StopCoroutine(runningTimerCoroutine);
+
+            // <<< ADDED → after answering, return to Round Screen for next round
+            StartCoroutine(GoToNextRoundFlow());
+
+          //  StartCoroutine(ProceedToNextRoundAfterDelay(nextRoundDelay));
+
+        });
+
+   
     }
 
     public float nextRoundDelay = 1.5f;
@@ -241,6 +262,7 @@ public class GameManager : MonoBehaviour
     {
         yield return new WaitForSeconds(nextRoundDelay);
         ShowRoundScreen();
+        StartNextRound();
     }
 
 
