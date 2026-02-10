@@ -64,6 +64,9 @@ public class EventManager : MonoBehaviour
     public static event BooleanReturnEvent isPlayerInCave;
     public static event BooleanEvent setPlayerInCave;
 
+
+    public static GenericObjectEvent OnFlaskClicked;
+
     public static void DoFireSetPlayerInCave(bool inCave)
     {
         setPlayerInCave?.Invoke(inCave);

@@ -1,32 +1,23 @@
-/*
-RoundQuestionView.cs
-Attach to the Question UI panel. Provide:
-
-* debugStripParent + prefabs to render the debug shown-colors
-* questionText (TMP)
-* answerButtons: array of Buttons (one per color). The script maps each button to a color index in ColorId's order.
-* labelText components under each button if you want to show/hide falsified labels (optional)
-  */
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
+using UnityEngine.UI;
 
 public class RoundQuestionView : MonoBehaviour
 {
     [Header("References")]
     public Text questionText;
-    public Button[] answerButtons; // length should match number of colors (5)
-    public Text[] answerButtonLabelTexts; // optional label components per button if you want to show/hide or falsify text
+    public FlaskScript[] flasks;                  // replaces Buttons
     public Transform debugStripParent;
     public GameObject debugColorPrefab;
-    public Text debugSequenceText; // optional
+    public TMP_Text debugSequenceText;             // optional
 
-
-private Question currentQuestion;
+    private Question currentQuestion;
     private List<ColorId> currentDebugSequence = new List<ColorId>();
     private HashSet<ColorId> currentSelections = new HashSet<ColorId>();
+
+    #region Unity Lifecycle
 
     private void OnEnable()
     {
@@ -35,6 +26,8 @@ private Question currentQuestion;
             GameManager.Instance.OnQuestionReady += HandleQuestionReady;
             GameManager.Instance.OnSequenceShowComplete += HandleSequenceComplete;
         }
+
+        EventManager.OnFlaskClicked += HandleFlaskClicked;
     }
 
     private void OnDisable()
@@ -44,21 +37,13 @@ private Question currentQuestion;
             GameManager.Instance.OnQuestionReady -= HandleQuestionReady;
             GameManager.Instance.OnSequenceShowComplete -= HandleSequenceComplete;
         }
+
+        EventManager.OnFlaskClicked -= HandleFlaskClicked;
     }
 
-    private void Start()
-    {
-        // wire button callbacks
-        for (int i = 0; i < answerButtons.Length; i++)
-        {
-            int idx = i; // local copy
-            answerButtons[i].onClick.AddListener(() => OnAnswerButtonClicked(idx));
-        }
+    #endregion
 
-        
-    }
-
-   
+    #region Game Events
 
     private void HandleSequenceComplete(List<ColorId> seq)
     {
@@ -70,95 +55,86 @@ private Question currentQuestion;
     {
         currentQuestion = q;
         currentSelections.Clear();
-        // Show debug sequence text optionally
+
+        // Debug sequence text (optional)
         if (debugSequenceText != null)
         {
             string dbg = "Debug: ";
-            if (currentDebugSequence.Count > 0)
+            foreach (var c in currentDebugSequence)
             {
-                for (int i = 0; i < currentDebugSequence.Count; i++)
-                {
-                    dbg += $"[{GameManager.Instance.GetNameForColor(currentDebugSequence[i])}] ";
-                }
+                dbg += $"[{GameManager.Instance.GetNameForColor(c)}] ";
             }
             debugSequenceText.text = dbg;
         }
 
-        foreach (var item in answerButtons)
+        // Prompt
+        if (questionText != null)
+            questionText.text = q.prompt;
+
+        int totalColors = GameManager.Instance.colorSprites.Length;
+
+        // Disable all flasks first
+        foreach (var flask in flasks)
         {
-            if (item)
-            {
-                item.gameObject.SetActive(false);
-                item.GetComponent<Outline>().enabled = false;
-            }
-        }
-        // Show prompt
-        if (questionText != null) questionText.text = q.prompt;
-
-        int currentSeqLength = GameManager.Instance.colorSprites.Length; //total colors
-
-        // Reset visuals of buttons
-        for (int i = 0; i < currentSeqLength; i++)
-        {
-            var img = answerButtons[i].GetComponent<Image>();
-            var sp = GameManager.Instance.GetColorFromID((ColorId)i);
-            if (img != null && sp != null) img.color = sp;
-
-            // reset label text to actual name by default
-            if (answerButtonLabelTexts != null && i < answerButtonLabelTexts.Length && answerButtonLabelTexts[i] != null)
-            {
-                answerButtonLabelTexts[i].text = GameManager.Instance.GetNameForColor((ColorId)i);
-            }
-            // reset button color/selection highlight (optional)
-            answerButtons[i].interactable = true;
-            answerButtons[i].gameObject.SetActive(true);
+            if (flask == null) continue;
+            flask.gameObject.SetActive(false);
+            flask.SetInteractable(false);
+            flask.Highlight(false);
         }
 
-   
-    }
-
-    private int GetCurrentRoundNumber()
-    {
-        // round is not directly stored in view; try to deduce from GameManager event (it invokes OnRoundChanged earlier)
-        // For simplicity assume the GameManager fired OnRoundChanged before OnQuestionReady.
-        // If you need exact round number expose it in Question or as GameManager property.
-        // We'll simply check currently displayed round text in scene (if available), else 1
-        return 1;
-    }
-
-  
-
-    private void UpdateDebugStrip(List<ColorId> seq)
-    {
-        if (debugStripParent == null || debugColorPrefab == null) return;
-        for (int i = debugStripParent.childCount - 1; i >= 0; i--) Destroy(debugStripParent.GetChild(i).gameObject);
-        foreach (var c in seq)
+        // Initialize active flasks
+        for (int i = 0; i < totalColors && i < flasks.Length; i++)
         {
-            var go = Instantiate(debugColorPrefab, debugStripParent);
-            var img = go.GetComponent<Image>();
-            var spr = GameManager.Instance.GetColorFromID(c);
-            if (spr != null && img != null) img.color = spr;
+            FlaskScript flask = flasks[i];
+            if (flask == null) continue;
+
+            ColorId id = (ColorId)i;
+            Color color = GameManager.Instance.GetColorFromID(id);
+            string name = GameManager.Instance.GetNameForColor(id);
+
+            flask.gameObject.SetActive(true);
+            flask.SetInteractable(true);
+            flask.SetColor(id, color, name);
+            flask.Highlight(false);
         }
     }
 
-    private void OnAnswerButtonClicked(int buttonIndex)
+    #endregion
+
+    private void HandleFlaskClicked(object obj)
     {
         if (currentQuestion == null) return;
-        ColorId clicked = (ColorId)buttonIndex;
 
+        FlaskScript flask = obj as FlaskScript;
 
-        answerButtons[buttonIndex].GetComponent<Outline>().enabled = true;
+        OnFlaskClicked(flask);
+    }
 
-        // Toggle selection for combined index question; for single-answer types submit immediately
+    #region Input (Called from FlaskScript)
+
+        /// <summary>
+        /// Called by FlaskScript when user clicks a flask
+        /// </summary>
+    public void OnFlaskClicked(FlaskScript flask)
+    {
+        if (currentQuestion == null || flask == null) return;
+
+        ColorId clicked = flask.colorId;
+
+        // Combined (multi-select) question
         if (currentQuestion.type == QuestionType.CombinedIndexQuestion)
         {
-            if (currentSelections.Contains(clicked)) currentSelections.Remove(clicked);
-            else currentSelections.Add(clicked);
+            if (currentSelections.Contains(clicked))
+            {
+                currentSelections.Remove(clicked);
+                flask.Highlight(false);
+            }
+            else
+            {
+                currentSelections.Add(clicked);
+                flask.Highlight(true);
+            }
 
-            
-
-            // Visual toggle (you can add better visuals)
-            // If two selected, auto-submit
             if (currentSelections.Count == currentQuestion.correctAnswers.Count)
             {
                 SubmitAnswers(new List<ColorId>(currentSelections));
@@ -166,17 +142,50 @@ private Question currentQuestion;
         }
         else
         {
+            // Single-select question
+            flask.Highlight(true);
             SubmitAnswers(new List<ColorId> { clicked });
         }
     }
 
+    #endregion
+
+    #region Submission
+
     private void SubmitAnswers(List<ColorId> answers)
     {
-        // disable buttons to prevent double submissions
-        foreach (var b in answerButtons) b.interactable = false;
-        // call GameManager
+        // Disable interaction after submit
+        foreach (var flask in flasks)
+        {
+            if (flask != null)
+                flask.SetInteractable(false);
+        }
+
         GameManager.Instance.AnswerSubmitted(answers);
     }
 
+    #endregion
 
+    #region Debug UI
+
+    private void UpdateDebugStrip(List<ColorId> seq)
+    {
+        if (debugStripParent == null || debugColorPrefab == null)
+            return;
+
+        for (int i = debugStripParent.childCount - 1; i >= 0; i--)
+            Destroy(debugStripParent.GetChild(i).gameObject);
+
+        foreach (var c in seq)
+        {
+            var go = Instantiate(debugColorPrefab, debugStripParent);
+            var img = go.GetComponent<UnityEngine.UI.Image>();
+            var col = GameManager.Instance.GetColorFromID(c);
+
+            if (img != null)
+                img.color = col;
+        }
+    }
+
+    #endregion
 }
